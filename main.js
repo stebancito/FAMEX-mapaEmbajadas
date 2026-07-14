@@ -5,7 +5,7 @@ import * as turf from '@turf/turf';
 import { procesarDatosDeHoja } from './excel.js';
 import { showAlert } from './ui.js';
 
-const map = L.map('map').setView([19.4326, -99.1332], 4);
+const map = L.map('map').setView([19.432761349059973, -99.13321947725065], 10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '© OpenStreetMap',
@@ -78,7 +78,7 @@ function procesarHoja(sheetName) {
     showAlert(`Se encontraron ${totales} registros, pero ninguno con coordenadas válidas.`, true);
     return;
   }
-  showAlert(`¡Éxito! Trazando ${validas.length} embajadas.`);
+  showAlert(`¡Éxito! Ubicando ${validas.length} de ${totales} embajadas.`);
 
   // Limpiar datos anteriores
   capaMarcadores.clearLayers();
@@ -129,24 +129,139 @@ function crearMarcador(pais, lat, lng) {
 }
 
 function obtenerCodigoPais(nombrePais) {
-  const paises = {
-    'alemania': 'de', 'arabia saudita': 'sa', 'argelia': 'dz',
-    'argentina': 'ar', 'australia': 'au', 'autralia': 'au',
-    'austria': 'at', 'autria': 'at', 'azerbaiyán': 'az',
-    'azerbaiyan': 'az', 'bélgica': 'be', 'belgica': 'be',
-    'belice': 'bz', 'estados unidos': 'us', 'usa': 'us',
-    'eua': 'us', 'canadá': 'ca', 'canada': 'ca',
-    'españa': 'es', 'francia': 'fr', 'reino unido': 'gb',
-    'inglaterra': 'gb', 'italia': 'it', 'japón': 'jp',
-    'japon': 'jp', 'china': 'cn', 'rusia': 'ru',
-    'brasil': 'br', 'colombia': 'co', 'perú': 'pe',
-    'peru': 'pe', 'chile': 'cl', 'venezuela': 've',
-    'ecuador': 'ec', 'guatemala': 'gt', 'cuba': 'cu',
-    'bolivia': 'bo', 'república dominicana': 'do',
-    'honduras': 'hn', 'paraguay': 'py', 'el salvador': 'sv',
-    'nicaragua': 'ni', 'costa rica': 'cr', 'panamá': 'pa',
-    'panama': 'pa', 'uruguay': 'uy', 'puerto rico': 'pr',
-    'méxico': 'mx', 'mexico': 'mx',
+    const paises = {
+    // A
+    'alemania': 'de',
+    'arabia saudita': 'sa',
+    'argelia': 'dz',
+    'argentina': 'ar',
+    'australia': 'au',
+    'autralia': 'au',
+    'austria': 'at',
+    'autria': 'at',
+    'azerbaiyán': 'az',
+    'azerbaiyan': 'az',
+
+    // B
+    'bélgica': 'be',
+    'belgica': 'be',
+    'belice': 'bz',
+    'brasil': 'br',
+    'bulgaria': 'bg',
+
+    // C
+    'canadá': 'ca',
+    'canada': 'ca',
+    'chile': 'cl',
+    'china': 'cn',
+    'colombia': 'co',
+    'corea': 'kr', // Corea del Sur
+
+    // D
+    'dinamarca': 'dk',
+
+    // E
+    'ecuador': 'ec',
+    'egipto': 'eg',
+    'el salvador': 'sv',
+    'emitatos árabes': 'ae',     // como aparece en el Excel
+    'emiratos árabes': 'ae',
+    'emiratos arabes': 'ae',
+    'eslovaquia': 'sk',
+    'españa': 'es',
+    'estados unidos': 'us',
+    'usa': 'us',
+    'eua': 'us',
+
+    // F
+    'filipinas': 'ph',
+    'finlandia': 'fi',
+    'francia': 'fr',
+
+    // G
+    'grecia': 'gr',
+    'guatemala': 'gt',
+
+    // H
+    'haití': 'ht',
+    'haiti': 'ht',
+    'honduras': 'hn',
+    'hungría': 'hu',
+    'hungria': 'hu',
+
+    // I
+    'india': 'in',
+    'indonesia': 'id',
+    'irlanda': 'ie',
+    'italia': 'it',
+
+    // J
+    'jamaica': 'jm',
+    'japón': 'jp',
+    'japon': 'jp',
+    'jordania': 'jo',
+
+    // L
+    'líbano': 'lb',
+    'libano': 'lb',
+
+    // M
+    'malasia': 'my',
+    'marruecos': 'ma',
+    'méxico': 'mx',
+    'mexico': 'mx',
+
+    // N
+    'nicaragua': 'ni',
+    'nigeria': 'ng',
+    'noruega': 'no',
+    'nueva zelanda': 'nz',
+
+    // P
+    'pakistán': 'pk',
+    'pakistan': 'pk',
+    'panamá': 'pa',
+    'panama': 'pa',
+    'paraguay': 'py',
+    'países bajos': 'nl',
+    'paises bajos': 'nl',
+    'polonia': 'pl',
+    'portugal': 'pt',
+    'puerto rico': 'pr',
+    'perú': 'pe',
+    'peru': 'pe',
+
+    // Q
+    'qatar': 'qa',
+
+    // R
+    'reino unido': 'gb',
+    'inglaterra': 'gb',
+    'república dominicana': 'do',
+    'republica dominicana': 'do',
+    'republiica checa': 'cz', // error del Excel
+    'república checa': 'cz',
+    'republica checa': 'cz',
+    'rumania': 'ro',
+    'rusia': 'ru',
+
+    // S
+    'serbia': 'rs',
+    'singapur': 'sg',
+    'sudáfrica': 'za',
+    'sudafrica': 'za',
+    'suecia': 'se',
+    'suiza': 'ch',
+
+    // T
+    'tailandia': 'th',
+
+    // U
+    'uruguay': 'uy',
+
+    // V
+    'venezuela': 've',
+    'vietnam': 'vn'
   };
   const normalizado = nombrePais?.toLowerCase().trim() || '';
   return paises[normalizado] || 'un';
