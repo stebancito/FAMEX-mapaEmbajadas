@@ -1,0 +1,21 @@
+{
+  "name": "sistema-embajadas",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.19",
+    "tailwindcss": "^4.3.2",
+    "vite": "^8.1.1"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "leaflet": "^1.9.4"
+  }
+}
