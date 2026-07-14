@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+}
+
+#map {
+  height: 100vh;
+  width: 100vw;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 10;
+}
+
+/* Panel flotante */
+#panel {
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Scroll en panel */
+#panel::-webkit-scrollbar {
+  width: 4px;
+}
+#panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+}
+
+/* Selector */
+#sheet-select {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(4px);
+}
+#sheet-select:focus {
+  border-color: #3b82f6;
+  ring: 2px solid #3b82f6;
+}
+
+/* Toast */
+#toast-alert {
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+/* ===== Marcadores estilo pin (pequeños) ===== */
+.custom-flag-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.marker-pin-small {
+  position: relative;
+  width: 30px;
+  height: 38px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 3px 5px rgba(0,0,0,0.3));
+}
+
+.marker-flag-small {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: white;
+  border: 2px solid #2c3e50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+
+.marker-flag-small img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Punta del pin */
+.marker-pin-small::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 10px solid #2c3e50;
+}
+
+/* Fallback de bandera (emoji) */
+.flag-fallback {
+  font-size: 20px;
+  line-height: 30px;
+}
+
+/* Hover */
+.custom-flag-marker:hover .marker-flag-small {
+  transform: scale(1.1);
+}
+
+/* ===== Marcador resaltado ===== */
+.marker-pin-small.resaltado .marker-flag-small {
+  border-color: #FFD700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+}
+
+.circulo-resaltado {
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 3px solid #FFD700;
+  background: rgba(255, 215, 0, 0.2);
+  pointer-events: none;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: translateX(-50%) scale(1); opacity: 0.8; }
+  50% { transform: translateX(-50%) scale(1.2); opacity: 0.3; }
+  100% { transform: translateX(-50%) scale(1); opacity: 0.8; }
+}
+
+/* ===== Popup personalizado ===== */
+.popup-embajada {
+  font-size: 13px;
+  line-height: 1.5;
+  min-width: 160px;
+}
+.popup-embajada strong {
+  color: #1e293b;
+}
+.popup-embajada .btn-cercanas {
+  margin-top: 8px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+.popup-embajada .btn-cercanas:hover {
+  background: #2563eb;
+}
+
+/* Ajuste para que el popup de Leaflet tenga fondo difuminado */
+.leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2) !important;
+}
+.leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(8px);
+}
