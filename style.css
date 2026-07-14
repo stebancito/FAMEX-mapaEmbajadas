@@ -23,9 +23,10 @@ html, body {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.3);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
-/* Scroll en panel */
 #panel::-webkit-scrollbar {
   width: 4px;
 }
@@ -86,7 +87,6 @@ html, body {
   border-radius: 50%;
 }
 
-/* Punta del pin */
 .marker-pin-small::after {
   content: '';
   position: absolute;
@@ -100,13 +100,11 @@ html, body {
   border-top: 10px solid #2c3e50;
 }
 
-/* Fallback de bandera (emoji) */
 .flag-fallback {
   font-size: 20px;
   line-height: 30px;
 }
 
-/* Hover */
 .custom-flag-marker:hover .marker-flag-small {
   transform: scale(1.1);
 }
@@ -137,41 +135,23 @@ html, body {
   100% { transform: translateX(-50%) scale(1); opacity: 0.8; }
 }
 
-/* ===== Popup personalizado ===== */
-.popup-embajada {
-  font-size: 13px;
-  line-height: 1.5;
-  min-width: 160px;
+/* ===== Estilos para la lista de cercanas ===== */
+#lista-cercanas {
+  max-height: 200px;
+  overflow-y: auto;
 }
-.popup-embajada strong {
-  color: #1e293b;
+#lista-cercanas::-webkit-scrollbar {
+  width: 3px;
 }
-.popup-embajada .btn-cercanas {
-  margin-top: 8px;
-  background: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 20px;
-  padding: 4px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
-}
-.popup-embajada .btn-cercanas:hover {
-  background: #2563eb;
+#lista-cercanas::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
 }
 
-/* Ajuste para que el popup de Leaflet tenga fondo difuminado */
-.leaflet-popup-content-wrapper {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.2) !important;
+.btn-centrar-cercana {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(4px);
 }
-.leaflet-popup-tip {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(8px);
+.btn-centrar-cercana:hover {
+  background: rgba(30, 41, 59, 0.9);
 }

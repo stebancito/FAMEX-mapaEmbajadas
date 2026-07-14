@@ -13,13 +13,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 let capaMarcadores = L.layerGroup().addTo(map);
 let workbookGlobal = null;
-
-// Almacenar todas las ubicaciones procesadas
 let todasLasUbicaciones = [];
-let marcadoresPorUbicacion = new Map(); // clave: lat+lng, valor: marker
-
-// Referencias para resaltado
+let marcadoresPorUbicacion = new Map();
 let marcadoresResaltados = [];
+let seleccionActual = null; // índice de la embajada seleccionada
 
 // Elementos DOM
 const fileInput = document.getElementById('excel-upload');
@@ -29,6 +26,13 @@ const sheetSelect = document.getElementById('sheet-select');
 const processSheetBtn = document.getElementById('process-sheet-btn');
 const toggleBtn = document.getElementById('toggle-panel');
 const panel = document.getElementById('panel');
+const detalleEmbajada = document.getElementById('detalle-embajada');
+const infoEmbajada = document.getElementById('info-embajada');
+const btnVerMaps = document.getElementById('btn-ver-maps');
+const numCercanas = document.getElementById('num-cercanas');
+const btnCalcularCercanas = document.getElementById('btn-calcular-cercanas');
+const cercanasContainer = document.getElementById('cercanas-container');
+const listaCercanas = document.getElementById('lista-cercanas');
 
 // Toggle panel
 let panelVisible = true;
@@ -80,11 +84,13 @@ function procesarHoja(sheetName) {
   }
   showAlert(`¡Éxito! Ubicando ${validas.length} de ${totales} embajadas.`);
 
-  // Limpiar datos anteriores
   capaMarcadores.clearLayers();
   todasLasUbicaciones = [];
   marcadoresPorUbicacion.clear();
   marcadoresResaltados = [];
+  seleccionActual = null;
+  detalleEmbajada.classList.add('hidden');
+  cercanasContainer.classList.add('hidden');
 
   validas.forEach((item, index) => {
     const marker = crearMarcador(item.pais, item.lat, item.lng);
@@ -92,7 +98,11 @@ function procesarHoja(sheetName) {
     todasLasUbicaciones.push(ubicacion);
     marcadoresPorUbicacion.set(`${item.lat},${item.lng}`, marker);
 
-    marker.bindPopup(crearPopupHTML(item, index));
+    // Evento click en el marcador
+    marker.on('click', () => {
+      seleccionarEmbajada(index);
+    });
+
     capaMarcadores.addLayer(marker);
   });
 
@@ -100,9 +110,55 @@ function procesarHoja(sheetName) {
     const bounds = L.featureGroup(capaMarcadores.getLayers()).getBounds();
     map.fitBounds(bounds, { padding: [50, 50] });
   }
+
+  // Si hay al menos una, seleccionar la primera por defecto
+  if (todasLasUbicaciones.length > 0) {
+    seleccionarEmbajada(0);
+  }
 }
 
-// Crear marcador con bandera (fallback a genérico si no carga imagen)
+function seleccionarEmbajada(index) {
+  // Restaurar resaltados previos
+  restaurarMarcadores();
+
+  seleccionActual = index;
+  const item = todasLasUbicaciones[index];
+  if (!item) return;
+
+  // Mostrar detalles en el panel
+  detalleEmbajada.classList.remove('hidden');
+  // infoEmbajada.innerHTML = `
+  //   <p><span class="font-semibold">País:</span> ${item.pais}</p>
+  //   <p><span class="font-semibold">Dirección:</span> ${item.direccion || 'Sin dirección'}</p>
+  //   <p><span class="font-semibold">Coordenadas:</span> ${item.lat}, ${item.lng}</p>
+  // `;
+
+  const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
+
+  // Inyectar HTML de la embajada principal
+  infoEmbajada.innerHTML = `
+      <div class="text-center">
+          <img src="https://flagcdn.com/w80/${obtenerCodigoPais(item.pais)}.png" class="mx-auto mb-3 border border-slate-200 rounded shadow-sm" alt="Bandera">
+          <h3 class="font-black text-slate-800 text-base uppercase tracking-wider mb-2">${item.pais}</h3>
+          <p class="text-[11px] font-medium text-slate-600 leading-relaxed mb-4 text-left border-l-2 border-blue-500 pl-2 bg-slate-50 p-2 rounded">${item.direccion}</p>
+          
+          <a href="${gmapsUrl}" target="_blank" class="flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-md">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+              Abrir en Google Maps
+          </a>
+      </div>
+  `;
+
+
+  // Limpiar lista de cercanas
+  cercanasContainer.classList.add('hidden');
+  listaCercanas.innerHTML = '';
+
+  // Centrar mapa en la embajada seleccionada
+  map.setView([item.lat, item.lng], 16);
+}
+
+// Crear marcador con bandera
 function crearMarcador(pais, lat, lng) {
   const codigo = obtenerCodigoPais(pais);
   const icon = L.divIcon({
@@ -119,195 +175,66 @@ function crearMarcador(pais, lat, lng) {
     iconAnchor: [15, 38],
     popupAnchor: [0, -35],
   });
-
-  // Si hay error de carga, usar marcador genérico de Leaflet
-  // (lo manejamos en el onerror de la imagen, pero también podemos forzar un cambio)
-  // De momento, el fallback muestra un emoji, pero podemos mejorar: 
-  // si falla, reemplazar todo el div con un marcador por defecto.
-  // Para simplificar, dejamos el emoji.
   return L.marker([lat, lng], { icon });
 }
 
 function obtenerCodigoPais(nombrePais) {
-    const paises = {
-    // A
-    'alemania': 'de',
-    'arabia saudita': 'sa',
-    'argelia': 'dz',
-    'argentina': 'ar',
-    'australia': 'au',
-    'autralia': 'au',
-    'austria': 'at',
-    'autria': 'at',
-    'azerbaiyán': 'az',
-    'azerbaiyan': 'az',
-
-    // B
-    'bélgica': 'be',
-    'belgica': 'be',
-    'belice': 'bz',
-    'brasil': 'br',
-    'bulgaria': 'bg',
-
-    // C
-    'canadá': 'ca',
-    'canada': 'ca',
-    'chile': 'cl',
-    'china': 'cn',
-    'colombia': 'co',
-    'corea': 'kr', // Corea del Sur
-
-    // D
-    'dinamarca': 'dk',
-
-    // E
-    'ecuador': 'ec',
-    'egipto': 'eg',
-    'el salvador': 'sv',
-    'emitatos árabes': 'ae',     // como aparece en el Excel
-    'emiratos árabes': 'ae',
-    'emiratos arabes': 'ae',
-    'eslovaquia': 'sk',
-    'españa': 'es',
-    'estados unidos': 'us',
-    'usa': 'us',
-    'eua': 'us',
-
-    // F
-    'filipinas': 'ph',
-    'finlandia': 'fi',
-    'francia': 'fr',
-
-    // G
-    'grecia': 'gr',
-    'guatemala': 'gt',
-
-    // H
-    'haití': 'ht',
-    'haiti': 'ht',
-    'honduras': 'hn',
-    'hungría': 'hu',
-    'hungria': 'hu',
-
-    // I
-    'india': 'in',
-    'indonesia': 'id',
-    'irlanda': 'ie',
-    'italia': 'it',
-
-    // J
-    'jamaica': 'jm',
-    'japón': 'jp',
-    'japon': 'jp',
-    'jordania': 'jo',
-
-    // L
-    'líbano': 'lb',
-    'libano': 'lb',
-
-    // M
-    'malasia': 'my',
-    'marruecos': 'ma',
-    'méxico': 'mx',
-    'mexico': 'mx',
-
-    // N
-    'nicaragua': 'ni',
-    'nigeria': 'ng',
-    'noruega': 'no',
-    'nueva zelanda': 'nz',
-
-    // P
-    'pakistán': 'pk',
-    'pakistan': 'pk',
-    'panamá': 'pa',
-    'panama': 'pa',
-    'paraguay': 'py',
-    'países bajos': 'nl',
-    'paises bajos': 'nl',
-    'polonia': 'pl',
-    'portugal': 'pt',
-    'puerto rico': 'pr',
-    'perú': 'pe',
-    'peru': 'pe',
-
-    // Q
-    'qatar': 'qa',
-
-    // R
-    'reino unido': 'gb',
-    'inglaterra': 'gb',
-    'república dominicana': 'do',
-    'republica dominicana': 'do',
-    'republiica checa': 'cz', // error del Excel
-    'república checa': 'cz',
-    'republica checa': 'cz',
-    'rumania': 'ro',
-    'rusia': 'ru',
-
-    // S
-    'serbia': 'rs',
-    'singapur': 'sg',
-    'sudáfrica': 'za',
-    'sudafrica': 'za',
-    'suecia': 'se',
-    'suiza': 'ch',
-
-    // T
-    'tailandia': 'th',
-
-    // U
-    'uruguay': 'uy',
-
-    // V
-    'venezuela': 've',
-    'vietnam': 'vn'
+  const paises = {
+    'alemania': 'de', 'arabia saudita': 'sa', 'argelia': 'dz',
+    'argentina': 'ar', 'australia': 'au', 'autralia': 'au',
+    'austria': 'at', 'autria': 'at', 'azerbaiyán': 'az',
+    'azerbaiyan': 'az', 'bélgica': 'be', 'belgica': 'be',
+    'belice': 'bz', 'brasil': 'br', 'bulgaria': 'bg',
+    'canadá': 'ca', 'canada': 'ca', 'chile': 'cl',
+    'china': 'cn', 'colombia': 'co', 'corea': 'kr',
+    'dinamarca': 'dk', 'ecuador': 'ec', 'egipto': 'eg',
+    'el salvador': 'sv', 'emitatos árabes': 'ae', 'emiratos árabes': 'ae',
+    'emiratos arabes': 'ae', 'eslovaquia': 'sk', 'españa': 'es',
+    'estados unidos': 'us', 'usa': 'us', 'eua': 'us',
+    'filipinas': 'ph', 'finlandia': 'fi', 'francia': 'fr',
+    'grecia': 'gr', 'guatemala': 'gt', 'haití': 'ht', 'haiti': 'ht',
+    'honduras': 'hn', 'hungría': 'hu', 'hungria': 'hu',
+    'india': 'in', 'indonesia': 'id', 'irlanda': 'ie',
+    'italia': 'it', 'jamaica': 'jm', 'japón': 'jp', 'japon': 'jp',
+    'jordania': 'jo', 'líbano': 'lb', 'libano': 'lb',
+    'malasia': 'my', 'marruecos': 'ma', 'méxico': 'mx', 'mexico': 'mx',
+    'nicaragua': 'ni', 'nigeria': 'ng', 'noruega': 'no',
+    'nueva zelanda': 'nz', 'pakistán': 'pk', 'pakistan': 'pk',
+    'panamá': 'pa', 'panama': 'pa', 'paraguay': 'py',
+    'países bajos': 'nl', 'paises bajos': 'nl', 'polonia': 'pl',
+    'portugal': 'pt', 'puerto rico': 'pr', 'perú': 'pe', 'peru': 'pe',
+    'qatar': 'qa', 'reino unido': 'gb', 'inglaterra': 'gb',
+    'república dominicana': 'do', 'republica dominicana': 'do',
+    'republiica checa': 'cz', 'república checa': 'cz', 'republica checa': 'cz',
+    'rumania': 'ro', 'rusia': 'ru', 'serbia': 'rs',
+    'singapur': 'sg', 'sudáfrica': 'za', 'sudafrica': 'za',
+    'suecia': 'se', 'suiza': 'ch', 'tailandia': 'th',
+    'uruguay': 'uy', 'venezuela': 've', 'vietnam': 'vn'
   };
   const normalizado = nombrePais?.toLowerCase().trim() || '';
   return paises[normalizado] || 'un';
 }
 
-// Popup HTML con botón
-function crearPopupHTML(item, index) {
-  return `
-    <div class="popup-embajada">
-      <strong>${item.pais}</strong><br>
-      ${item.direccion || 'Sin dirección'}<br>
-      <small>${item.lat}, ${item.lng}</small><br>
-      <button class="btn-cercanas" data-index="${index}">Dos más cercanas</button>
-    </div>
-  `;
-}
-
-// Manejar clics en el botón (usamos evento delegado en el mapa)
-map.on('popupopen', (e) => {
-  const popup = e.popup;
-  const container = popup.getElement();
-  if (!container) return;
-  const btn = container.querySelector('.btn-cercanas');
-  if (btn) {
-    btn.addEventListener('click', () => {
-      const index = parseInt(btn.dataset.index);
-      if (!isNaN(index)) {
-        calcularYResaltarCercanas(index);
-      }
-    });
+// Calcular y mostrar cercanas
+btnCalcularCercanas.addEventListener('click', () => {
+  if (seleccionActual === null) {
+    showAlert('Primero selecciona una embajada.', true);
+    return;
   }
+  const n = parseInt(numCercanas.value) || 2;
+  if (n < 1) {
+    showAlert('El número debe ser al menos 1.', true);
+    return;
+  }
+  calcularCercanas(seleccionActual, n);
 });
 
-// Cerrar popup al seleccionar otra cosa (para limpiar resaltados)
-map.on('popupclose', () => {
-  restaurarMarcadores();
-});
-
-function calcularYResaltarCercanas(index) {
-  // Restaurar resaltados previos
-  restaurarMarcadores();
+function calcularCercanas(index, n) {
+  restaurarMarcadores(); // Limpiar resaltados previos
 
   const origen = todasLasUbicaciones[index];
   if (!origen) return;
 
-  // Calcular distancias a todas las demás
   const from = turf.point([origen.lng, origen.lat]);
   const distancias = todasLasUbicaciones
     .map((item, i) => {
@@ -319,18 +246,16 @@ function calcularYResaltarCercanas(index) {
     .filter(d => d !== null)
     .sort((a, b) => a.distance - b.distance);
 
-  // Tomar las dos primeras
-  const dosCercanas = distancias.slice(0, 2);
-  if (dosCercanas.length < 2) {
-    showAlert('No hay suficientes embajadas para calcular las dos más cercanas.', true);
+  const cercanas = distancias.slice(0, n);
+  if (cercanas.length === 0) {
+    showAlert('No hay otras embajadas.', true);
     return;
   }
 
-  // Resaltar esos dos marcadores
-  dosCercanas.forEach((d) => {
+  // Resaltar en el mapa
+  cercanas.forEach((d) => {
     const marker = todasLasUbicaciones[d.index].marker;
     if (marker) {
-      // Cambiar ícono a uno resaltado (con borde dorado)
       const iconoResaltado = L.divIcon({
         className: 'custom-flag-marker resaltado',
         html: `
@@ -351,16 +276,45 @@ function calcularYResaltarCercanas(index) {
     }
   });
 
-  // Mostrar mensaje con las distancias
-  showAlert(`Las dos más cercanas: ${dosCercanas[0].item.pais} (${dosCercanas[0].distance.toFixed(1)} km) y ${dosCercanas[1].item.pais} (${dosCercanas[1].distance.toFixed(1)} km)`);
+  // // Mostrar lista en el panel
+  cercanasContainer.classList.remove('hidden');
+  listaCercanas.innerHTML = cercanas.map(c => {
+        const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${c.item.lat},${c.item.lng}`;
+        return `
+        <div class="bg-white/80 p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2 hover:border-blue-300 transition-colors">
+            <div class="flex items-center gap-2">
+                <img src="https://flagcdn.com/w20/${obtenerCodigoPais(c.item.pais)}.png" class="border border-slate-300 rounded-sm shadow-sm" alt="${c.item.pais}">
+                <span class="text-xs font-bold text-slate-800">${c.item.pais}</span>
+                <span class="text-[10px] font-bold text-blue-700 ml-auto bg-blue-100/80 px-2 py-0.5 rounded-full shadow-inner">a ${c.distance.toFixed(1)} km</span>
+            </div>
+            <p class="text-[10px] text-slate-500 line-clamp-2" title="${c.item.direccion}">${c.item.direccion}</p>
+            <a href="${gmapsUrl}" target="_blank" class="mt-1 text-center bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-semibold py-1.5 rounded-lg transition-all">
+                Ver en Maps
+            </a>
+        </div>
+        `;
+    }).join('');
+
+  // Agregar eventos a los botones de centrar
+  listaCercanas.querySelectorAll('.btn-centrar-cercana').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.index);
+      if (!isNaN(idx)) {
+        const item = todasLasUbicaciones[idx];
+        if (item) {
+          map.setView([item.lat, item.lng], 12);
+          // Opcional: seleccionar esa embajada en el panel
+          seleccionarEmbajada(idx);
+        }
+      }
+    });
+  });
+
+  showAlert(`Se encontraron ${cercanas.length} embajadas cercanas.`);
 }
 
 function restaurarMarcadores() {
   marcadoresResaltados.forEach(marker => {
-    // Reconstruir ícono original (sin resaltado)
-    // Para simplificar, guardamos el país original en el marker o lo buscamos en todasLasUbicaciones
-    // Aquí usamos una búsqueda por coordenadas, pero mejor guardar referencia.
-    // Como tenemos el marker, buscamos en todasLasUbicaciones el que coincida con ese marker.
     const ubicacion = todasLasUbicaciones.find(u => u.marker === marker);
     if (ubicacion) {
       const nuevoIcon = crearIconoNormal(ubicacion.pais);
