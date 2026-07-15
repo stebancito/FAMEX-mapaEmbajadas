@@ -2,6 +2,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import * as XLSX from 'xlsx';
 import * as turf from '@turf/turf';
+import { toPng } from 'html-to-image';
 import { procesarDatosDeHoja } from './excel.js';
 import { showAlert } from './ui.js';
 
@@ -16,31 +17,65 @@ let workbookGlobal = null;
 let todasLasUbicaciones = [];
 let marcadoresPorUbicacion = new Map();
 let marcadoresResaltados = [];
-let seleccionActual = null; // índice de la embajada seleccionada
+let seleccionActual = null;
+let marcadorSeleccionado = null; // referencia al marcador con resaltado azul
 
-// Elementos DOM
+// Caché de banderas en base64
+const cacheBanderaBase64 = new Map();
+
+// DOM
 const fileInput = document.getElementById('excel-upload');
 const uploadBtn = document.getElementById('upload-btn');
 const sheetSelectorContainer = document.getElementById('sheet-selector-container');
 const sheetSelect = document.getElementById('sheet-select');
 const processSheetBtn = document.getElementById('process-sheet-btn');
-const toggleBtn = document.getElementById('toggle-panel');
 const panel = document.getElementById('panel');
+const toggleBtn = document.getElementById('toggle-panel-btn');
+const toggleIcon = document.getElementById('toggle-icon');
+const closePanelBtn = document.getElementById('close-panel-btn');
 const detalleEmbajada = document.getElementById('detalle-embajada');
 const infoEmbajada = document.getElementById('info-embajada');
-const btnVerMaps = document.getElementById('btn-ver-maps');
 const numCercanas = document.getElementById('num-cercanas');
 const btnCalcularCercanas = document.getElementById('btn-calcular-cercanas');
 const cercanasContainer = document.getElementById('cercanas-container');
 const listaCercanas = document.getElementById('lista-cercanas');
+const exportImgBtn = document.getElementById('export-img-btn');
 
-// Toggle panel
-let panelVisible = true;
-toggleBtn.addEventListener('click', () => {
-  panelVisible = !panelVisible;
-  panel.style.display = panelVisible ? 'block' : 'none';
-  toggleBtn.textContent = panelVisible ? '✕' : '☰';
-});
+// Estado del panel
+let panelAbierto = true;
+
+function togglePanel(abrir) {
+  if (typeof abrir === 'boolean') {
+    panelAbierto = abrir;
+  } else {
+    panelAbierto = !panelAbierto;
+  }
+
+  if (panelAbierto) {
+    panel.style.display = 'flex';
+    toggleIcon.innerHTML = `
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+    `;
+    toggleBtn.classList.remove('bg-slate-800/80', 'hover:bg-slate-700');
+    toggleBtn.classList.add('bg-slate-800/90', 'hover:bg-slate-900');
+  } else {
+    panel.style.display = 'none';
+    toggleIcon.innerHTML = `
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    `;
+    toggleBtn.classList.remove('bg-slate-800/90', 'hover:bg-slate-900');
+    toggleBtn.classList.add('bg-slate-800/80', 'hover:bg-slate-700');
+  }
+}
+
+toggleBtn.addEventListener('click', () => togglePanel());
+closePanelBtn.addEventListener('click', () => togglePanel(false));
+
+function asegurarPanelAbierto() {
+  if (!panelAbierto) {
+    togglePanel(true);
+  }
+}
 
 uploadBtn.addEventListener('click', () => fileInput.click());
 
@@ -68,7 +103,35 @@ processSheetBtn.addEventListener('click', () => {
   sheetSelectorContainer.classList.add('hidden');
 });
 
-function procesarHoja(sheetName) {
+// Cargar banderas en base64
+async function cargarBanderaBase64(pais) {
+  const codigo = obtenerCodigoPais(pais);
+  const url = `https://flagcdn.com/w40/${codigo}.png`;
+
+  if (cacheBanderaBase64.has(url)) {
+    return cacheBanderaBase64.get(url);
+  }
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Error al descargar la bandera');
+    const blob = await response.blob();
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
+    cacheBanderaBase64.set(url, dataUrl);
+    return dataUrl;
+  } catch (error) {
+    console.warn(`No se pudo cargar la bandera de ${pais}`, error);
+    const fallback = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSIzMCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjMwIiBmaWxsPSIjY2NjIi8+PHRleHQgeD0iMjAiIHk9IjE4IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDAwIj7wn6OzPC90ZXh0Pjwvc3ZnPg==';
+    cacheBanderaBase64.set(url, fallback);
+    return fallback;
+  }
+}
+
+async function procesarHoja(sheetName) {
   if (!workbookGlobal) {
     showAlert('No hay archivo cargado.', true);
     return;
@@ -82,6 +145,12 @@ function procesarHoja(sheetName) {
     showAlert(`Se encontraron ${totales} registros, pero ninguno con coordenadas válidas.`, true);
     return;
   }
+
+  showAlert(`Cargando banderas...`);
+
+  const paisesUnicos = [...new Set(validas.map(item => item.pais))];
+  await Promise.all(paisesUnicos.map(pais => cargarBanderaBase64(pais)));
+
   showAlert(`¡Éxito! Ubicando ${validas.length} de ${totales} embajadas.`);
 
   capaMarcadores.clearLayers();
@@ -89,6 +158,7 @@ function procesarHoja(sheetName) {
   marcadoresPorUbicacion.clear();
   marcadoresResaltados = [];
   seleccionActual = null;
+  marcadorSeleccionado = null;
   detalleEmbajada.classList.add('hidden');
   cercanasContainer.classList.add('hidden');
 
@@ -98,7 +168,6 @@ function procesarHoja(sheetName) {
     todasLasUbicaciones.push(ubicacion);
     marcadoresPorUbicacion.set(`${item.lat},${item.lng}`, marker);
 
-    // Evento click en el marcador
     marker.on('click', () => {
       seleccionarEmbajada(index);
     });
@@ -111,71 +180,161 @@ function procesarHoja(sheetName) {
     map.fitBounds(bounds, { padding: [50, 50] });
   }
 
-  // Si hay al menos una, seleccionar la primera por defecto
   if (todasLasUbicaciones.length > 0) {
     seleccionarEmbajada(0);
   }
 }
 
 function seleccionarEmbajada(index) {
-  // Restaurar resaltados previos
+  asegurarPanelAbierto();
+
+  // Restaurar el marcador seleccionado anterior a normal
+  if (marcadorSeleccionado) {
+    const ubicAnterior = todasLasUbicaciones.find(u => u.marker === marcadorSeleccionado);
+    if (ubicAnterior) {
+      const nuevoIcon = crearIconoNormal(ubicAnterior.pais);
+      marcadorSeleccionado.setIcon(nuevoIcon);
+    }
+    marcadorSeleccionado = null;
+  }
+
+  // Restaurar resaltados de cercanas (si los hay)
   restaurarMarcadores();
 
   seleccionActual = index;
   const item = todasLasUbicaciones[index];
   if (!item) return;
 
-  // Mostrar detalles en el panel
-  detalleEmbajada.classList.remove('hidden');
-  // infoEmbajada.innerHTML = `
-  //   <p><span class="font-semibold">País:</span> ${item.pais}</p>
-  //   <p><span class="font-semibold">Dirección:</span> ${item.direccion || 'Sin dirección'}</p>
-  //   <p><span class="font-semibold">Coordenadas:</span> ${item.lat}, ${item.lng}</p>
-  // `;
+  // Aplicar resaltado azul al marcador seleccionado
+  const iconoSeleccionado = crearIconoSeleccionado(item.pais);
+  item.marker.setIcon(iconoSeleccionado);
+  marcadorSeleccionado = item.marker;
 
+  detalleEmbajada.classList.remove('hidden');
   const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`;
 
-  // Inyectar HTML de la embajada principal
+  const codigo = obtenerCodigoPais(item.pais);
+  const url = `https://flagcdn.com/w80/${codigo}.png`;
+  const banderaBase64 = cacheBanderaBase64.get(url) || '';
+
   infoEmbajada.innerHTML = `
       <div class="text-center">
-          <img src="https://flagcdn.com/w80/${obtenerCodigoPais(item.pais)}.png" class="mx-auto mb-3 border border-slate-200 rounded shadow-sm" alt="Bandera">
           <h3 class="font-black text-slate-800 text-base uppercase tracking-wider mb-2">${item.pais}</h3>
           <p class="text-[11px] font-medium text-slate-600 leading-relaxed mb-4 text-left border-l-2 border-blue-500 pl-2 bg-slate-50 p-2 rounded">${item.direccion}</p>
-          
-          <a href="${gmapsUrl}" target="_blank" class="flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl transition-all shadow-md">
+          <a href="${gmapsUrl}" target="_blank" class="flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2.5 px-4 rounded-lg transition-all shadow-md">
               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
               Abrir en Google Maps
           </a>
       </div>
   `;
 
-
-  // Limpiar lista de cercanas
   cercanasContainer.classList.add('hidden');
   listaCercanas.innerHTML = '';
-
-  // Centrar mapa en la embajada seleccionada
   map.setView([item.lat, item.lng], 16);
 }
 
-// Crear marcador con bandera
+// Crear marcador normal (sin resaltar)
 function crearMarcador(pais, lat, lng) {
-  const codigo = obtenerCodigoPais(pais);
+  const color = obtenerColorPorPais(pais);
+  const dataUrl = obtenerBanderaBase64DesdeCache(pais);
+
   const icon = L.divIcon({
     className: 'custom-flag-marker',
     html: `
-      <div class="marker-pin-small">
-        <div class="marker-flag-small">
-          <img src="https://flagcdn.com/w40/${codigo}.png" alt="${pais}" 
-               onerror="this.parentElement.innerHTML='<span class=\\'flag-fallback\\'>🏳️</span>';">
+      <div class="marker-container">
+        <div class="marker-circle" style="background-color: ${color};">
+          <img src="${dataUrl}" alt="${pais}" style="width:28px; height:28px; object-fit:cover; border-radius:50%; border:1px solid rgba(255,255,255,0.5);">
         </div>
+        <div class="marker-label">${pais}</div>
       </div>
     `,
-    iconSize: [30, 38],
-    iconAnchor: [15, 38],
-    popupAnchor: [0, -35],
+    iconSize: [50, 58],
+    iconAnchor: [25, 48],
+    popupAnchor: [0, -48],
   });
+
   return L.marker([lat, lng], { icon });
+}
+
+// Icono normal (para restaurar)
+function crearIconoNormal(pais) {
+  const color = obtenerColorPorPais(pais);
+  const dataUrl = obtenerBanderaBase64DesdeCache(pais);
+  return L.divIcon({
+    className: 'custom-flag-marker',
+    html: `
+      <div class="marker-container">
+        <div class="marker-circle" style="background-color: ${color};">
+          <img src="${dataUrl}" alt="${pais}" style="width:28px; height:28px; object-fit:cover; border-radius:50%; border:1px solid rgba(255,255,255,0.5);">
+        </div>
+        <div class="marker-label">${pais}</div>
+      </div>
+    `,
+    iconSize: [50, 58],
+    iconAnchor: [25, 48],
+    popupAnchor: [0, -48],
+  });
+}
+
+// Icono seleccionado (azul)
+function crearIconoSeleccionado(pais) {
+  const color = obtenerColorPorPais(pais);
+  const dataUrl = obtenerBanderaBase64DesdeCache(pais);
+  return L.divIcon({
+    className: 'custom-flag-marker',
+    html: `
+      <div class="marker-container seleccionado">
+        <div class="marker-circle" style="background-color: ${color};">
+          <img src="${dataUrl}" alt="${pais}" style="width:28px; height:28px; object-fit:cover; border-radius:50%; border:1px solid rgba(255,255,255,0.5);">
+        </div>
+        <div class="marker-label">${pais}</div>
+      </div>
+    `,
+    iconSize: [50, 58],
+    iconAnchor: [25, 48],
+    popupAnchor: [0, -48],
+  });
+}
+
+// Icono resaltado (dorado para cercanas)
+function crearIconoResaltado(pais) {
+  const color = obtenerColorPorPais(pais);
+  const dataUrl = obtenerBanderaBase64DesdeCache(pais);
+  return L.divIcon({
+    className: 'custom-flag-marker',
+    html: `
+      <div class="marker-container resaltado">
+        <div class="marker-circle" style="background-color: ${color};">
+          <img src="${dataUrl}" alt="${pais}" style="width:28px; height:28px; object-fit:cover; border-radius:50%; border:1px solid rgba(255,255,255,0.5);">
+        </div>
+        <div class="marker-label">${pais}</div>
+      </div>
+    `,
+    iconSize: [50, 58],
+    iconAnchor: [25, 48],
+    popupAnchor: [0, -48],
+  });
+}
+
+function obtenerBanderaBase64DesdeCache(pais) {
+  const codigo = obtenerCodigoPais(pais);
+  const url = `https://flagcdn.com/w40/${codigo}.png`;
+  return cacheBanderaBase64.get(url) || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSIzMCI+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjMwIiBmaWxsPSIjY2NjIi8+PHRleHQgeD0iMjAiIHk9IjE4IiBmb250LXNpemU9IjE0IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjMDAwIj7wn6OzPC90ZXh0Pjwvc3ZnPg==';
+}
+
+function obtenerColorPorPais(nombrePais) {
+  const colores = [
+    '#e74c3c', '#3498db', '#2ecc71', '#f1c40f', '#9b59b6',
+    '#1abc9c', '#e67e22', '#e84393', '#00b894', '#6c5ce7',
+    '#fd79a8', '#0984e3', '#fdcb6e', '#00cec9', '#d63031',
+    '#6ab04c', '#eb4d4b', '#f0932b', '#4834d4', '#be2edd'
+  ];
+  let hash = 0;
+  for (let i = 0; i < nombrePais.length; i++) {
+    hash = nombrePais.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const idx = Math.abs(hash) % colores.length;
+  return colores[idx];
 }
 
 function obtenerCodigoPais(nombrePais) {
@@ -186,6 +345,7 @@ function obtenerCodigoPais(nombrePais) {
     'azerbaiyan': 'az', 'bélgica': 'be', 'belgica': 'be',
     'belice': 'bz', 'brasil': 'br', 'bulgaria': 'bg',
     'canadá': 'ca', 'canada': 'ca', 'chile': 'cl',
+    'costa rica': 'cr',
     'china': 'cn', 'colombia': 'co', 'corea': 'kr',
     'dinamarca': 'dk', 'ecuador': 'ec', 'egipto': 'eg',
     'el salvador': 'sv', 'emitatos árabes': 'ae', 'emiratos árabes': 'ae',
@@ -215,7 +375,7 @@ function obtenerCodigoPais(nombrePais) {
   return paises[normalizado] || 'un';
 }
 
-// Calcular y mostrar cercanas
+// Calcular cercanas
 btnCalcularCercanas.addEventListener('click', () => {
   if (seleccionActual === null) {
     showAlert('Primero selecciona una embajada.', true);
@@ -230,7 +390,7 @@ btnCalcularCercanas.addEventListener('click', () => {
 });
 
 function calcularCercanas(index, n) {
-  restaurarMarcadores(); // Limpiar resaltados previos
+  restaurarMarcadores();
 
   const origen = todasLasUbicaciones[index];
   if (!origen) return;
@@ -252,38 +412,22 @@ function calcularCercanas(index, n) {
     return;
   }
 
-  // Resaltar en el mapa
   cercanas.forEach((d) => {
     const marker = todasLasUbicaciones[d.index].marker;
     if (marker) {
-      const iconoResaltado = L.divIcon({
-        className: 'custom-flag-marker resaltado',
-        html: `
-          <div class="marker-pin-small resaltado">
-            <div class="marker-flag-small" style="border-color: #FFD700; box-shadow: 0 0 15px #FFD700;">
-              <img src="https://flagcdn.com/w40/${obtenerCodigoPais(d.item.pais)}.png" alt="${d.item.pais}" 
-                   onerror="this.parentElement.innerHTML='<span class=\\'flag-fallback\\'>🏳️</span>';">
-            </div>
-            <div class="circulo-resaltado"></div>
-          </div>
-        `,
-        iconSize: [30, 38],
-        iconAnchor: [15, 38],
-        popupAnchor: [0, -35],
-      });
+      const iconoResaltado = crearIconoResaltado(d.item.pais);
       marker.setIcon(iconoResaltado);
       marcadoresResaltados.push(marker);
     }
   });
 
-  // // Mostrar lista en el panel
   cercanasContainer.classList.remove('hidden');
   listaCercanas.innerHTML = cercanas.map(c => {
         const gmapsUrl = `https://www.google.com/maps/search/?api=1&query=${c.item.lat},${c.item.lng}`;
         return `
-        <div class="bg-white/80 p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-2 hover:border-blue-300 transition-colors">
+        <div class="bg-white/80 p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2 hover:border-blue-300 transition-colors">
             <div class="flex items-center gap-2">
-                <img src="https://flagcdn.com/w20/${obtenerCodigoPais(c.item.pais)}.png" class="border border-slate-300 rounded-sm shadow-sm" alt="${c.item.pais}">
+                <img src="${obtenerBanderaBase64DesdeCache(c.item.pais)}" class="border border-slate-300 rounded-sm shadow-sm" alt="${c.item.pais}" style="width:20px; height:20px; object-fit:cover;">
                 <span class="text-xs font-bold text-slate-800">${c.item.pais}</span>
                 <span class="text-[10px] font-bold text-blue-700 ml-auto bg-blue-100/80 px-2 py-0.5 rounded-full shadow-inner">a ${c.distance.toFixed(1)} km</span>
             </div>
@@ -295,21 +439,6 @@ function calcularCercanas(index, n) {
         `;
     }).join('');
 
-  // Agregar eventos a los botones de centrar
-  listaCercanas.querySelectorAll('.btn-centrar-cercana').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const idx = parseInt(btn.dataset.index);
-      if (!isNaN(idx)) {
-        const item = todasLasUbicaciones[idx];
-        if (item) {
-          map.setView([item.lat, item.lng], 12);
-          // Opcional: seleccionar esa embajada en el panel
-          seleccionarEmbajada(idx);
-        }
-      }
-    });
-  });
-
   showAlert(`Se encontraron ${cercanas.length} embajadas cercanas.`);
 }
 
@@ -317,27 +446,45 @@ function restaurarMarcadores() {
   marcadoresResaltados.forEach(marker => {
     const ubicacion = todasLasUbicaciones.find(u => u.marker === marker);
     if (ubicacion) {
-      const nuevoIcon = crearIconoNormal(ubicacion.pais);
-      marker.setIcon(nuevoIcon);
+      // Solo restaurar si no es el marcador seleccionado actual
+      if (marker !== marcadorSeleccionado) {
+        const nuevoIcon = crearIconoNormal(ubicacion.pais);
+        marker.setIcon(nuevoIcon);
+      }
     }
   });
   marcadoresResaltados = [];
 }
 
-function crearIconoNormal(pais) {
-  const codigo = obtenerCodigoPais(pais);
-  return L.divIcon({
-    className: 'custom-flag-marker',
-    html: `
-      <div class="marker-pin-small">
-        <div class="marker-flag-small">
-          <img src="https://flagcdn.com/w40/${codigo}.png" alt="${pais}" 
-               onerror="this.parentElement.innerHTML='<span class=\\'flag-fallback\\'>🏳️</span>';">
-        </div>
-      </div>
-    `,
-    iconSize: [30, 38],
-    iconAnchor: [15, 38],
-    popupAnchor: [0, -35],
-  });
-}
+// ===== EXPORTAR IMAGEN =====
+exportImgBtn.addEventListener('click', async () => {
+  const mapContainer = document.getElementById('map');
+  if (!mapContainer) {
+    showAlert('No se encontró el mapa.', true);
+    return;
+  }
+
+  showAlert('Generando imagen...');
+
+  try {
+    map.invalidateSize();
+    await new Promise(resolve => setTimeout(resolve, 400));
+
+    const dataUrl = await toPng(mapContainer, {
+      useCORS: true,
+      backgroundColor: '#f0f2f5',
+      pixelRatio: window.devicePixelRatio || 1,
+      skipFonts: true,
+    });
+
+    const link = document.createElement('a');
+    link.download = 'mapa-embajadas.png';
+    link.href = dataUrl;
+    link.click();
+
+    showAlert('Imagen exportada con éxito.');
+  } catch (error) {
+    console.error('Error al exportar:', error);
+    showAlert('Error al exportar la imagen: ' + error.message, true);
+  }
+});

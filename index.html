@@ -9,35 +9,66 @@
   <body class="relative overflow-hidden font-sans text-slate-800">
     <div id="map" class="absolute inset-0 z-10"></div>
 
-    <!-- Panel lateral interactivo -->
+    <!-- Botón flotante para abrir/cerrar panel (siempre visible) -->
+    <button
+      id="toggle-panel-btn"
+      class="absolute top-4 right-4 z-[1001] w-10 h-10 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-white shadow-lg flex items-center justify-center transition-all duration-200 border border-white/20 backdrop-blur-sm"
+      aria-label="Alternar panel"
+    >
+      <!-- Icono: se cambia dinámicamente con JS -->
+      <svg id="toggle-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+
+    <!-- Panel lateral -->
     <div
       id="panel"
-      class="absolute top-4 right-4 z-[1000] w-80 max-h-[calc(100vh-2rem)] overflow-y-auto p-4 bg-white/10 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 transition-all duration-300 flex flex-col gap-3"
+      class="absolute top-4 right-4 z-[1000] w-80 max-h-[calc(100vh-2rem)] overflow-y-auto p-4 bg-white/20 backdrop-blur-md rounded-lg shadow-2xl border border-white/30 transition-all duration-300 flex flex-col gap-3"
     >
       <div class="flex items-center justify-between">
-        <h1 class="text-lg font-bold text-slate-800">Visor de Embajadas</h1>
+        <h1 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          Visor de Embajadas
+        </h1>
         <button
-          id="toggle-panel"
-          class="w-8 h-8 rounded-full bg-white/30 backdrop-blur-md border border-white/40 shadow-lg flex items-center justify-center text-slate-700 hover:bg-white/50 transition-all duration-200 text-lg font-bold"
-          aria-label="Alternar panel"
+          id="close-panel-btn"
+          class="w-8 h-8 rounded-md bg-white/30 hover:bg-white/50 border border-white/40 shadow-sm flex items-center justify-center text-slate-700 transition-all"
+          aria-label="Cerrar panel"
         >
-          ✕
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
         </button>
       </div>
 
-      <p class="text-xs text-slate-600/80 -mt-1">Sube tu Excel para trazar las ubicaciones.</p>
+      <p class="text-xs text-slate-600/80 -mt-1 flex items-center gap-1">
+        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Sube tu Excel para trazar las ubicaciones.
+      </p>
 
       <input type="file" id="excel-upload" accept=".xlsx, .xls" class="hidden" />
       <button
         id="upload-btn"
-        class="w-full bg-blue-600/90 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-3 rounded-xl transition-all shadow-md hover:shadow-blue-600/30"
+        class="w-full bg-blue-600/90 hover:bg-blue-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all shadow-md hover:shadow-blue-600/30 flex items-center justify-center gap-2"
       >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
         Cargar Archivo Excel
       </button>
 
       <!-- Selector de hojas -->
       <div id="sheet-selector-container" class="hidden border-t border-white/30 pt-3">
-        <label class="block text-xs font-semibold text-slate-700/90 mb-1.5">
+        <label class="block text-xs font-semibold text-slate-700/90 mb-1.5 flex items-center gap-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+          </svg>
           El archivo tiene varias hojas. ¿Cuál usamos?
         </label>
         <select
@@ -46,37 +77,68 @@
         ></select>
         <button
           id="process-sheet-btn"
-          class="w-full mt-2 bg-slate-800/90 hover:bg-slate-900 text-white text-sm font-semibold py-1.5 px-3 rounded-xl transition-all"
+          class="w-full mt-2 bg-slate-800/90 hover:bg-slate-900 text-white text-sm font-semibold py-1.5 px-3 rounded-lg transition-all flex items-center justify-center gap-2"
         >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
           Procesar Datos
         </button>
       </div>
 
-      <!-- Sección de detalles de la embajada seleccionada -->
+      <!-- Botón exportar imagen -->
+      <button
+        id="export-img-btn"
+        class="w-full bg-emerald-600/90 hover:bg-emerald-700 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-all shadow-md hover:shadow-emerald-600/30 flex items-center justify-center gap-2"
+      >
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        Exportar imagen del mapa
+      </button>
+
+      <!-- Detalle embajada seleccionada -->
       <div id="detalle-embajada" class="hidden border-t border-white/30 pt-3">
-        <h2 class="text-sm font-semibold text-slate-700 mb-2">Embajada Seleccionada</h2>
+        <h2 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          Embajada Seleccionada
+        </h2>
         <div id="info-embajada" class="text-sm space-y-1">
-          <!-- Se llena dinámicamente -->
+          <!-- Dinámico -->
         </div>
         <div class="flex flex-wrap gap-2 mt-2">
           <div class="flex items-center gap-1">
-            <label class="text-xs text-slate-600">Cercanas:</label>
+            <label class="text-xs text-slate-600 flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              Cercanas:
+            </label>
             <input type="number" id="num-cercanas" value="2" min="1" max="10" class="w-12 text-sm p-1 rounded border border-white/30 bg-white/50 backdrop-blur-sm text-center" />
-            <button id="btn-calcular-cercanas" class="bg-blue-600/90 hover:bg-blue-700 text-white text-xs font-semibold py-1 px-3 rounded-full transition-all">
+            <button id="btn-calcular-cercanas" class="bg-blue-600/90 hover:bg-blue-700 text-white text-xs font-semibold py-1 px-3 rounded-full transition-all flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
               Calcular
             </button>
           </div>
         </div>
       </div>
 
-      <!-- Sección de embajadas cercanas -->
+      <!-- Embajadas cercanas -->
       <div id="cercanas-container" class="hidden border-t border-white/30 pt-3">
-        <h2 class="text-sm font-semibold text-slate-700 mb-2">Embajadas Cercanas</h2>
+        <h2 class="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Embajadas Cercanas
+        </h2>
         <div id="lista-cercanas" class="text-sm space-y-2 max-h-60 overflow-y-auto pr-1">
-          <!-- Se llena dinámicamente -->
+          <!-- Dinámico -->
         </div>
       </div>
-
     </div>
 
     <div id="toast-alert" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[1000] hidden px-6 py-3 rounded-full shadow-xl text-sm font-medium transition-all duration-300 opacity-0 translate-y-4"></div>
