@@ -193,6 +193,54 @@ html, body {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(4px);
 }
+
 .btn-centrar-cercana:hover {
   background: rgba(30, 41, 59, 0.9);
 }
+
+#lista-agenda {
+  max-height: 180px;
+  overflow-y: auto;
+}
+#lista-agenda::-webkit-scrollbar {
+  width: 3px;
+}
+#lista-agenda::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+}
+
+/* Pestañas */
+#tab-mapa, #tab-agenda {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+#tab-mapa:hover, #tab-agenda:hover {
+  color: #1e293b;
+}
+
+/* Modal calendario */
+#modal-calendario {
+  transition: opacity 0.25s ease;
+}
+#modal-calendario.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+#modal-calendario:not(.hidden) {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Estilos para el calendario */
+#cal-grid > div {
+  font-size: 0.7rem;
+  transition: background 0.2s;
+}
+#cal-grid > div:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+#cal-grid .ring-2 {
+  box-shadow: 0 0 0 2px #3b82f6;
+}   
